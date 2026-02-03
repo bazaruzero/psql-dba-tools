@@ -4,7 +4,7 @@
 # Vars
 DBA_TOOLS="psql-dba-tools"
 DBA_TOOLS_REPO="https://github.com/bazaruzero/${DBA_TOOLS}"
-DBA_TOOLS_HOME="/home/admin/psql-dba-tools"
+DBA_TOOLS_HOME="/home/admin/${DBA_TOOLS}"
 SQL_DIR="${DBA_TOOLS_HOME}/sql"
 MENU_SCRIPT="${DBA_TOOLS_HOME}/dba.psql"
 PSQLRC_FILE="${DBA_TOOLS_HOME}/psqlrc"
