@@ -1,4 +1,5 @@
 -- recovery role
+
 select
     case
         when pg_is_in_recovery() then 'Replica [read only]'

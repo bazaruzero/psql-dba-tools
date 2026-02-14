@@ -1,4 +1,5 @@
 -- parameters (basic)
+
 select
     name,
     setting as curr_value,

@@ -1,2 +1,0 @@
--- wait events
-select 'todo';

@@ -87,8 +87,8 @@ for dir in "${dirs[@]}"; do
         echo "\\echo '  ${menu_number} - ${description}'" >> "${submenu_file}"
     done
     
-    echo "\\echo '  b - Back to main menu'" >> "${submenu_file}"
-    echo "\\echo '  q - Quit'" >> "${submenu_file}"
+    echo "\\echo '  b - back to main menu'" >> "${submenu_file}"
+    echo "\\echo '  q - quit'" >> "${submenu_file}"
     echo "\\echo" >> "${submenu_file}"
     echo "" >> "${submenu_file}"
     echo "\\echo 'Type your choice and press <Enter>: '" >> "${submenu_file}"
@@ -133,7 +133,7 @@ for dir in "${dirs[@]}"; do
     echo "\endif" >> ${submenu_file}
 done
 
-echo "\echo '  q - Quit'" >> ${MENU_SCRIPT}
+echo "\echo '  q - quit'" >> ${MENU_SCRIPT}
 echo "\echo" >> ${MENU_SCRIPT}
 echo "" >> ${MENU_SCRIPT}
 echo "\echo 'Type your choice and press <Enter>: '" >> ${MENU_SCRIPT}
