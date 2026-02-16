@@ -91,8 +91,8 @@ for dir in "${dirs[@]}"; do
     echo "\\echo '  q - quit'" >> "${submenu_file}"
     echo "\\echo" >> "${submenu_file}"
     echo "" >> "${submenu_file}"
-    echo "\\echo 'Type your choice and press <Enter>: '" >> "${submenu_file}"
-    echo "\\prompt sub_choice" >> "${submenu_file}"
+    #echo "\\echo 'Type your choice and press <Enter>: '" >> "${submenu_file}"
+    echo "\\prompt 'Type your choice and press <Enter>: ' sub_choice" >> "${submenu_file}"
     echo "\\set sc '\'' :sub_choice '\''" >> "${submenu_file}"
     echo "" >> ${submenu_file}
     echo "select" >> ${submenu_file}
@@ -136,8 +136,8 @@ done
 echo "\echo '  q - quit'" >> ${MENU_SCRIPT}
 echo "\echo" >> ${MENU_SCRIPT}
 echo "" >> ${MENU_SCRIPT}
-echo "\echo 'Type your choice and press <Enter>: '" >> ${MENU_SCRIPT}
-echo "\prompt user_choice" >> ${MENU_SCRIPT}
+#echo "\echo 'Type your choice and press <Enter>: '" >> ${MENU_SCRIPT}
+echo "\prompt 'Type your choice and press <Enter>: ' user_choice" >> ${MENU_SCRIPT}
 echo "\set uc '\'' :user_choice '\''" >> ${MENU_SCRIPT}
 
 echo "" >> ${MENU_SCRIPT}
