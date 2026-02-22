@@ -91,7 +91,6 @@ for dir in "${dirs[@]}"; do
     echo "\\echo '  q - quit'" >> "${submenu_file}"
     echo "\\echo" >> "${submenu_file}"
     echo "" >> "${submenu_file}"
-    #echo "\\echo 'Type your choice and press <Enter>: '" >> "${submenu_file}"
     echo "\\prompt 'Type your choice and press <Enter>: ' sub_choice" >> "${submenu_file}"
     echo "\\set sc '\'' :sub_choice '\''" >> "${submenu_file}"
     echo "" >> ${submenu_file}
@@ -136,7 +135,6 @@ done
 echo "\echo '  q - quit'" >> ${MENU_SCRIPT}
 echo "\echo" >> ${MENU_SCRIPT}
 echo "" >> ${MENU_SCRIPT}
-#echo "\echo 'Type your choice and press <Enter>: '" >> ${MENU_SCRIPT}
 echo "\prompt 'Type your choice and press <Enter>: ' user_choice" >> ${MENU_SCRIPT}
 echo "\set uc '\'' :user_choice '\''" >> ${MENU_SCRIPT}
 
@@ -172,3 +170,5 @@ echo "    \echo 'ERROR: Unknown option! Try agan.'" >> ${MENU_SCRIPT}
 echo "    \echo" >> ${MENU_SCRIPT}
 echo "    \i ${MENU_SCRIPT}" >> ${MENU_SCRIPT}
 echo "\endif" >> ${MENU_SCRIPT}
+
+chmod -R 500 ${SQL_DIR}/
