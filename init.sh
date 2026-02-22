@@ -112,6 +112,8 @@ for dir in "${dirs[@]}"; do
         file_prefix=$(echo "$file_name" | grep -o '^[0-9_]*[0-9]')
         menu_number=$(echo "$file_prefix" | awk -F'_' '{print $NF}')
         echo "    :sc::text = '${menu_number}' as do_${menu_number}," >> ${submenu_file}
+        echo "    :sc::text = '${menu_number}s' as show_${menu_number}," >> ${submenu_file}
+        echo "    :sc::text = '${menu_number}e' as edit_${menu_number}," >> ${submenu_file}
     done
 
     echo "    :sc::text = 'b' as do_back_to_main," >> ${submenu_file}
@@ -131,6 +133,18 @@ for dir in "${dirs[@]}"; do
         menu_number=$(echo "$file_prefix" | awk -F'_' '{print $NF}')
         echo "\elif :do_${menu_number}" >> ${submenu_file}
         echo "    \i ${sql_file}"  >> ${submenu_file}
+        echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> ${submenu_file}
+        echo "    \i ${submenu_file}" >> ${submenu_file}
+
+        # show path to sctipt option
+        echo "\elif :show_${menu_number}" >> ${submenu_file}
+        echo "    \echo 'Script path: ${sql_file}'" >> ${submenu_file}
+        echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> ${submenu_file}
+        echo "    \i ${submenu_file}" >> ${submenu_file}
+
+        # open script option
+        echo "\elif :edit_${menu_number}" >> ${submenu_file}
+        echo "    \! view ${sql_file}" >> ${submenu_file}
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> ${submenu_file}
         echo "    \i ${submenu_file}" >> ${submenu_file}
     done
