@@ -1,14 +1,25 @@
 #!/bin/bash
 # Generate psql menu/sub-menu files based on the content of SQL_DIR directory
 
-# Vars
+set -e
+
+##############################
+## Config
+##############################
+
+# Name
 DBA_TOOLS="psql-dba-tools"
+
+# Paths
 DBA_TOOLS_REPO="https://github.com/bazaruzero/${DBA_TOOLS}"
-DBA_TOOLS_HOME="/home/admin/${DBA_TOOLS}"
+DBA_TOOLS_HOME="${HOME}/${DBA_TOOLS}"
 SQL_DIR="${DBA_TOOLS_HOME}/sql"
 MENU_SCRIPT="${DBA_TOOLS_HOME}/dba.psql"
 PSQLRC_FILE="${DBA_TOOLS_HOME}/psqlrc"
 
+##############################
+## Main
+##############################
 
 # check for scripts
 if ! [[ -d ${SQL_DIR} ]]; then
@@ -171,4 +182,4 @@ echo "    \echo" >> ${MENU_SCRIPT}
 echo "    \i ${MENU_SCRIPT}" >> ${MENU_SCRIPT}
 echo "\endif" >> ${MENU_SCRIPT}
 
-chmod -R 500 ${SQL_DIR}/
+chmod -R 700 ${SQL_DIR}/
