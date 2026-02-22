@@ -27,12 +27,21 @@ select
         when name = 'max_worker_processes' then '-'
         when name = 'track_io_timing' then 'on'
         when name = 'autovacuum_timeout_threshold_enable' then 'on'
+        when name = 'max_connections' then '300 (use connection pool)'
+        when name = 'work_mem' then '-'
+        when name = 'maintenance_work_mem' then '-'
+        when name = 'effective_io_concurrency' then 'concurrent IO only really activated if OS supports posix_fadvise function'
+        when name = 'wal_level' then '-'
+        when name = 'max_wal_senders' then '-'
+        when name = 'min_wal_size' then '-'
+        when name = 'wal_keep_size' then '-'
+        when name = 'jit' then 'off'
         else '-'
     end as recom_value
 from 
     pg_settings
 where
-    name in ('autovacuum'
+    name in ('autovacuum',
     'autovacuum_max_workers',
     'bgwriter_delay',
     'bgwriter_lru_maxpages',
@@ -53,5 +62,13 @@ where
     'max_parallel_workers',
     'max_worker_processes',
     'track_io_timing',
-    'autovacuum_timeout_threshold_enable')
+    'autovacuum_timeout_threshold_enable',
+    'max_connections',
+    'work_mem',
+    'maintenance_work_mem',
+    'effective_io_concurrency',
+    'wal_level',
+    'min_wal_size',
+    'wal_keep_size',
+    'jit')
 order by name;
