@@ -16,7 +16,9 @@ select
         when pg_catalog.has_database_privilege(d.datname, 'CONNECT') then pg_catalog.pg_size_pretty(pg_catalog.pg_database_size(d.datname))
         else 'No Access'
     end as "size",
-    t.spcname as "tablespace"
+    t.spcname as "tablespace",
+    round(100 * age(datfrozenxid)::bigint / 2000000000) as pct_to_wraparound,
+    round(100 * age(datfrozenxid)::bigint / current_setting('autovacuum_freeze_max_age')::bigint) as pct_to_emergency_vacuum
 from
     pg_catalog.pg_database d
     join pg_catalog.pg_tablespace t on d.dattablespace = t.oid
