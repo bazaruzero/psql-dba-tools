@@ -33,14 +33,16 @@ is_valid_symlink_to_dir() {
 }
 
 # Generate submenu for a custom directory (symlink target)
+# Returns 0 if submenu was created, 1 if no SQL files found
 generate_custom_submenu() {
     local custom_link="$1"
     local custom_link_name=$(basename "$custom_link")
+    # Replace any non-alphanumeric character with underscore for safe filename and variable names
+    local safe_name=$(echo "$custom_link_name" | sed 's/[^a-zA-Z0-9]/_/g')
     local target_dir=$(readlink -f "$custom_link")
-    local submenu_file="${CUSTOM_DIR}/sub_menu__${custom_link_name}.psql"
+    local submenu_file="${CUSTOM_DIR}/sub_menu__${safe_name}.psql"
     
     # Get all SQL files in the target directory (any name pattern)
-    # Using while loop with null delimiter to handle special characters in filenames
     local sql_files=()
     while IFS= read -r -d '' file; do
         sql_files+=("$file")
@@ -48,8 +50,8 @@ generate_custom_submenu() {
     
     # Skip if no SQL files found
     if [[ ${#sql_files[@]} -eq 0 ]]; then
-        echo "Warning: No SQL files found in ${target_dir} (linked from ${custom_link_name})"
-        return
+        echo "WARNING: No SQL files found in ${target_dir} (linked from ${custom_link_name})"
+        return 1
     fi
     
     # Start building submenu
@@ -59,7 +61,6 @@ generate_custom_submenu() {
     echo "\\echo 'Menu:'" >> "$submenu_file"
     
     # Add menu items for each SQL file (numbered sequentially)
-    # Use filename as is, without any processing
     local menu_index=1
     for sql_file in "${sql_files[@]}"; do
         local file_name=$(basename "$sql_file")
@@ -76,12 +77,12 @@ generate_custom_submenu() {
     echo "" >> "$submenu_file"
     echo "select" >> "$submenu_file"
     
-    # Generate SELECT conditions for each menu option
+    # Generate SELECT conditions for each menu option (using safe_name)
     local select_index=1
     for sql_file in "${sql_files[@]}"; do
-        echo "    :sc::text = '${select_index}' as do_${custom_link_name}_${select_index}," >> "$submenu_file"
-        echo "    :sc::text = '${select_index}s' as show_${custom_link_name}_${select_index}," >> "$submenu_file"
-        echo "    :sc::text = '${select_index}e' as edit_${custom_link_name}_${select_index}," >> "$submenu_file"
+        echo "    :sc::text = '${select_index}' as do_${safe_name}_${select_index}," >> "$submenu_file"
+        echo "    :sc::text = '${select_index}s' as show_${safe_name}_${select_index}," >> "$submenu_file"
+        echo "    :sc::text = '${select_index}e' as edit_${safe_name}_${select_index}," >> "$submenu_file"
         select_index=$((select_index + 1))
     done
     
@@ -95,25 +96,25 @@ generate_custom_submenu() {
     echo "\elif :do_back_to_main" >> "$submenu_file"
     echo "    \i ${MENU_SCRIPT}" >> "$submenu_file"
     
-    # Generate execution branches for each menu option
+    # Generate execution branches for each menu option (using safe_name)
     local branch_index=1
     for sql_file in "${sql_files[@]}"; do
         local escaped_sql_file=$(echo "$sql_file" | sed 's/\\/\\\\/g')
         
         # Regular execution
-        echo "\elif :do_${custom_link_name}_${branch_index}" >> "$submenu_file"
+        echo "\elif :do_${safe_name}_${branch_index}" >> "$submenu_file"
         echo "    \i ${escaped_sql_file}" >> "$submenu_file"
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> "$submenu_file"
         echo "    \i ${submenu_file}" >> "$submenu_file"
         
         # Show path
-        echo "\elif :show_${custom_link_name}_${branch_index}" >> "$submenu_file"
+        echo "\elif :show_${safe_name}_${branch_index}" >> "$submenu_file"
         echo "    \echo 'Script path: ${escaped_sql_file}'" >> "$submenu_file"
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> "$submenu_file"
         echo "    \i ${submenu_file}" >> "$submenu_file"
         
         # Edit with backup
-        echo "\elif :edit_${custom_link_name}_${branch_index}" >> "$submenu_file"
+        echo "\elif :edit_${safe_name}_${branch_index}" >> "$submenu_file"
         echo "    \\! cp ${escaped_sql_file} ${escaped_sql_file}.bkp_\\\$(date +%Y%m%d_%H%M%S)" >> "$submenu_file"
         echo "    \\! view ${escaped_sql_file}" >> "$submenu_file"
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> "$submenu_file"
@@ -128,6 +129,8 @@ generate_custom_submenu() {
     echo "    \echo" >> "$submenu_file"
     echo "    \i ${submenu_file}" >> "$submenu_file"
     echo "\endif" >> "$submenu_file"
+    
+    return 0
 }
 
 # Clean up old custom submenu files
@@ -309,21 +312,33 @@ while IFS= read -r link; do
     if is_valid_symlink_to_dir "$link"; then
         custom_links+=("$link")
     else
-        echo "Warning: $link is not a valid symlink to a directory. Skipping."
+        echo "WARNING: $link is not a valid symlink to a directory. Skipping."
     fi
 done < <(find "$CUSTOM_DIR" -maxdepth 1 -type l | sort -V)
 
-# Add custom section to main menu if there are any valid links
-# Custom section comes AFTER the quit option
-if [[ ${#custom_links[@]} -gt 0 ]]; then
-    #echo "\echo" >> ${MENU_SCRIPT}
+# Process custom links and track which ones actually have SQL files
+valid_custom_links=()
+valid_custom_indices=()
+custom_index=1
+
+for link in "${custom_links[@]}"; do
+    # Generate submenu and check if it was created successfully
+    if generate_custom_submenu "$link"; then
+        valid_custom_links+=("$link")
+        valid_custom_indices+=($custom_index)
+    fi
+    custom_index=$((custom_index + 1))
+done
+
+# Add custom section to main menu only if there are valid links with SQL files
+if [[ ${#valid_custom_links[@]} -gt 0 ]]; then
     echo "\echo 'Custom scripts:'" >> ${MENU_SCRIPT}
     
-    custom_index=1
-    for link in "${custom_links[@]}"; do
+    idx=0
+    for link in "${valid_custom_links[@]}"; do
         link_name=$(basename "$link")
-        echo "\echo '  c${custom_index} - ${link_name}'" >> ${MENU_SCRIPT}
-        custom_index=$((custom_index + 1))
+        echo "\echo '  c${valid_custom_indices[$idx]} - ${link_name}'" >> ${MENU_SCRIPT}
+        idx=$((idx + 1))
     done
 fi
 
@@ -344,12 +359,14 @@ done
 # Quit condition (before custom)
 echo "    :uc::text = 'q' as do_quit," >> ${MENU_SCRIPT}
 
-# Add conditions for custom links (after quit)
-if [[ ${#custom_links[@]} -gt 0 ]]; then
-    custom_index=1
-    for link in "${custom_links[@]}"; do
-        echo "    :uc::text = 'c${custom_index}' as do_custom_${custom_index}," >> ${MENU_SCRIPT}
-        custom_index=$((custom_index + 1))
+# Add conditions for valid custom links only
+if [[ ${#valid_custom_links[@]} -gt 0 ]]; then
+    idx=0
+    for link in "${valid_custom_links[@]}"; do
+        link_name=$(basename "$link")
+        safe_name=$(echo "$link_name" | sed 's/[^a-zA-Z0-9]/_/g')
+        echo "    :uc::text = 'c${valid_custom_indices[$idx]}' as do_custom_${safe_name}," >> ${MENU_SCRIPT}
+        idx=$((idx + 1))
     done
 fi
 
@@ -372,19 +389,17 @@ for dir in "${dirs[@]}"; do
     echo "    \i ${submenu_file}"  >> ${MENU_SCRIPT}  
 done
 
-# Add branches for custom links
-if [[ ${#custom_links[@]} -gt 0 ]]; then
-    custom_index=1
-    for link in "${custom_links[@]}"; do
+# Add branches for valid custom links only
+if [[ ${#valid_custom_links[@]} -gt 0 ]]; then
+    idx=0
+    for link in "${valid_custom_links[@]}"; do
         link_name=$(basename "$link")
-        custom_submenu="${CUSTOM_DIR}/sub_menu__${link_name}.psql"
+        safe_name=$(echo "$link_name" | sed 's/[^a-zA-Z0-9]/_/g')
+        custom_submenu="${CUSTOM_DIR}/sub_menu__${safe_name}.psql"
         
-        # Generate submenu for this custom link
-        generate_custom_submenu "$link"
-        
-        echo "\elif :do_custom_${custom_index}" >> ${MENU_SCRIPT}
+        echo "\elif :do_custom_${safe_name}" >> ${MENU_SCRIPT}
         echo "    \i ${custom_submenu}" >> ${MENU_SCRIPT}
-        custom_index=$((custom_index + 1))
+        idx=$((idx + 1))
     done
 fi
 
@@ -398,5 +413,5 @@ echo "\endif" >> ${MENU_SCRIPT}
 # Set permissions
 chmod -R 700 ${SQL_DIR}/
 
-echo "init.sh completed successfully"
-echo "Custom scripts: place symlinks to your script directories in ${CUSTOM_DIR}"
+echo "INFO: init.sh completed successfully"
+echo "INFO: for custom scripts - place symlinks to your script directories in ${CUSTOM_DIR}"
