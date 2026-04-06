@@ -81,7 +81,8 @@ generate_custom_submenu() {
     local select_index=1
     for sql_file in "${sql_files[@]}"; do
         echo "    :sc::text = '${select_index}' as do_${safe_name}_${select_index}," >> "$submenu_file"
-        echo "    :sc::text = '${select_index}s' as show_${safe_name}_${select_index}," >> "$submenu_file"
+        echo "    :sc::text = '${select_index}p' as show_${safe_name}_${select_index}," >> "$submenu_file"
+        echo "    :sc::text = '${select_index}o' as open_${safe_name}_${select_index}," >> "$submenu_file"
         echo "    :sc::text = '${select_index}e' as edit_${safe_name}_${select_index}," >> "$submenu_file"
         select_index=$((select_index + 1))
     done
@@ -107,15 +108,21 @@ generate_custom_submenu() {
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> "$submenu_file"
         echo "    \i ${submenu_file}" >> "$submenu_file"
         
-        # Show path
+        # Show path (option p)
         echo "\elif :show_${safe_name}_${branch_index}" >> "$submenu_file"
         echo "    \echo 'Script path: ${escaped_sql_file}'" >> "$submenu_file"
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> "$submenu_file"
         echo "    \i ${submenu_file}" >> "$submenu_file"
         
-        # Edit with backup
+        # Open read-only (option o) - no backup
+        echo "\elif :open_${safe_name}_${branch_index}" >> "$submenu_file"
+        echo "    \\! view -M ${escaped_sql_file}" >> "$submenu_file"
+        echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> "$submenu_file"
+        echo "    \i ${submenu_file}" >> "$submenu_file"
+        
+        # Edit with backup (option e)
         echo "\elif :edit_${safe_name}_${branch_index}" >> "$submenu_file"
-        echo "    \\! cp ${escaped_sql_file} ${escaped_sql_file}.bkp_\\\$(date +%Y%m%d_%H%M%S)" >> "$submenu_file"
+        echo "    \\! cp ${escaped_sql_file} ${escaped_sql_file}.bkp_\$(date +%Y%m%d_%H%M%S)" >> "$submenu_file"
         echo "    \\! view ${escaped_sql_file}" >> "$submenu_file"
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> "$submenu_file"
         echo "    \i ${submenu_file}" >> "$submenu_file"
@@ -245,7 +252,8 @@ for dir in "${dirs[@]}"; do
         file_prefix=$(echo "$file_name" | grep -o '^[0-9_]*[0-9]')
         menu_number=$(echo "$file_prefix" | awk -F'_' '{print $NF}')
         echo "    :sc::text = '${menu_number}' as do_${menu_number}," >> ${submenu_file}
-        echo "    :sc::text = '${menu_number}s' as show_${menu_number}," >> ${submenu_file}
+        echo "    :sc::text = '${menu_number}p' as show_${menu_number}," >> ${submenu_file}
+        echo "    :sc::text = '${menu_number}o' as open_${menu_number}," >> ${submenu_file}
         echo "    :sc::text = '${menu_number}e' as edit_${menu_number}," >> ${submenu_file}
     done
     
@@ -269,15 +277,21 @@ for dir in "${dirs[@]}"; do
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> ${submenu_file}
         echo "    \i ${submenu_file}" >> ${submenu_file}
         
-        # Show path option
+        # Show path option (p)
         echo "\elif :show_${menu_number}" >> ${submenu_file}
         echo "    \echo 'Script path: ${sql_file}'" >> ${submenu_file}
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> ${submenu_file}
         echo "    \i ${submenu_file}" >> ${submenu_file}
         
-        # Edit with backup option
+        # Open read-only option (o) - no backup
+        echo "\elif :open_${menu_number}" >> ${submenu_file}
+        echo "    \\! view -M ${sql_file}" >> ${submenu_file}
+        echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> ${submenu_file}
+        echo "    \i ${submenu_file}" >> ${submenu_file}
+        
+        # Edit with backup option (e)
         echo "\elif :edit_${menu_number}" >> ${submenu_file}
-        echo "    \\! cp ${sql_file} ${sql_file}.bkp_\\\$(date +%Y%m%d_%H%M%S)" >> ${submenu_file}
+        echo "    \\! cp ${sql_file} ${sql_file}.bkp_\$(date +%Y%m%d_%H%M%S)" >> ${submenu_file}
         echo "    \\! view ${sql_file}" >> ${submenu_file}
         echo "    \prompt 'Press <Enter> to continue ...' do_dummy" >> ${submenu_file}
         echo "    \i ${submenu_file}" >> ${submenu_file}

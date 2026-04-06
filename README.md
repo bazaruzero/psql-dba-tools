@@ -21,8 +21,11 @@ psql=> :dba
 `q` - quit
 
 **Additional options in submenus:**  
-`<number>s` - show script path  
-`<number>e` - edit script
+`<number>p` - shows script path
+
+`<number>o` - opens script in read-only mode
+
+`<number>e` - opens script for edit
 
 ## Custom scripts
 
