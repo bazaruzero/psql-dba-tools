@@ -1,3 +1,0 @@
--- users info
-
-select 'TODO';
