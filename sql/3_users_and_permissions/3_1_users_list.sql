@@ -15,39 +15,34 @@ with user_info as (
             from unnest(r.rolconfig) as config_item
             where r.rolconfig is not null
         ) as settings
-    from (
-        select
-            rolname,
-            unnest(
-                array_remove(
-                    array[
-                        case when rolcanlogin = false then 'no login' else null end,
-                        case when rolinherit = false then 'no inheritance' else null end,
-                        case when rolsuper then 'superuser' else null end,
-                        case when rolcreaterole then 'create role' else null end,
-                        case when rolcreatedb then 'create db' else null end,
-                        case when rolreplication then 'replication' else null end,
-                        case when rolbypassrls then 'bypass rls' else null end,
-                        case when rolconnlimit is not null and rolconnlimit >= 0 
-                             then format('connection limit: %s', rolconnlimit) 
-                             else null end,
-                        case when rolvaliduntil is not null 
-                             then format('valid until: %s', rolvaliduntil::date) 
-                             else null end
-                    ],
-                    null
-                )
-            ) as attr
-        from pg_roles
-    ) t
-    join pg_roles r on r.rolname = t.rolname
+    from pg_roles r
+    left join lateral unnest(
+        array_remove(
+            array[
+                case when r.rolcanlogin = false then 'no login' else null end,
+                case when r.rolinherit = false then 'no inheritance' else null end,
+                case when r.rolsuper then 'superuser' else null end,
+                case when r.rolcreaterole then 'create role' else null end,
+                case when r.rolcreatedb then 'create db' else null end,
+                case when r.rolreplication then 'replication' else null end,
+                case when r.rolbypassrls then 'bypass rls' else null end,
+                case when r.rolconnlimit is not null and r.rolconnlimit >= 0
+                     then format('connection limit: %s', r.rolconnlimit)
+                     else null end,
+                case when r.rolvaliduntil is not null
+                     then format('valid until: %s', r.rolvaliduntil::date)
+                     else null end
+            ],
+            null
+        )
+    ) as attr on true
     group by r.rolname, r.oid, r.rolconfig
 )
 select
     *
 from
     user_info
-where 
+where
     1 = 1
     --and username = 'postgres'
     --and attributes like '%superuser%'
