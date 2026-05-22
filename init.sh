@@ -8,10 +8,11 @@ set -e
 ##############################
 
 DBA_TOOLS_REPO="https://github.com/bazaruzero/psql-dba-tools"
-SQL_DIR="sql"
-CUSTOM_DIR="custom"
-MENU_SCRIPT="dba.psql"
-PSQLRC_FILE="psqlrc"
+DBA_TOOLS_HOME=${1:-${HOME}/psql-dba-tools}
+SQL_DIR="${DBA_TOOLS_HOME}/sql"
+CUSTOM_DIR="${DBA_TOOLS_HOME}/custom"
+MENU_SCRIPT="${DBA_TOOLS_HOME}/dba.psql"
+PSQLRC_FILE="${DBA_TOOLS_HOME}/psqlrc"
 
 ##############################
 ## Helper Functions
