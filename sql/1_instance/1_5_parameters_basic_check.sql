@@ -1,4 +1,4 @@
--- parameters (basic)
+-- parameters (basic check)
 
 select
     name,
