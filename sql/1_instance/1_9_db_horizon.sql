@@ -42,9 +42,9 @@ select
     age(backend_xmin) as xmin_age, -- snapshot age
     backend_xid as xid, -- session real transaction id
     age(backend_xid) as xid_age, -- session real transaction id age
-    to_char(clock_timestamp() - xact_start,'HH24:MI:SS.MS') AS xact_start,
-    to_char(clock_timestamp() - query_start,'HH24:MI:SS.MS') AS query_start,
-    to_char(clock_timestamp() - state_change,'HH24:MI:SS.MS') AS state_change,
+    age(clock_timestamp(), xact_start) as xact_duration,
+    age(clock_timestamp(), query_start) as query_duration,
+    age(clock_timestamp(), state_change) as state_duration,
     case
     	when state = 'idle in transaction' then
        		'done, duration: ' || round(abs(extract(epoch from (query_start - state_change))) * 1000) || ' ms'
@@ -68,7 +68,7 @@ order by greatest(age(backend_xmin), age(backend_xid)) desc;
 \echo '##### Lagging Replication Slots (physical/logical) #####'
 \echo ''
 
-\echo 'TODO: replication lag info ...'
+\echo '... Check "Replication" section for a lag ...'
 
 \echo ''
 \echo '##### Long-running queries on Physical Standby (hot_standby_feedback = on) #####'

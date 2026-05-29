@@ -19,9 +19,9 @@ select
     l.mode,
     l.granted,
     l.fastpath,
-    --to_char(clock_timestamp() - a.xact_start,'HH24:MI:SS.MS') AS xact_start,
-    --to_char(clock_timestamp() - a.query_start,'HH24:MI:SS.MS') AS query_start,
-    --to_char(clock_timestamp() - a.state_change,'HH24:MI:SS.MS') AS state_change,
+    --age(clock_timestamp(), xact_start) as xact_duration,
+    --age(clock_timestamp(), query_start) as query_duration,
+    --age(clock_timestamp(), state_change) as state_duration,
     case
     	when state = 'idle in transaction' then
        		'done, duration: ' || round(abs(extract(epoch from (a.query_start - a.state_change))) * 1000) || ' ms'

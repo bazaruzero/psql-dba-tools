@@ -10,9 +10,9 @@ select
     --backend_xmin,
     substr(application_name, 1, 20) AS app,
     --backend_start,
-    to_char(clock_timestamp() - xact_start,'DD HH24:MI:SS.MS') AS xact_start,
-    to_char(clock_timestamp() - query_start,'DD HH24:MI:SS.MS') AS query_start,
-    to_char(clock_timestamp() - state_change,'DD HH24:MI:SS.MS') AS state_change,
+    age(clock_timestamp(), xact_start) as xact_duration,
+    age(clock_timestamp(), query_start) as query_duration,
+    age(clock_timestamp(), state_change) as state_duration,
     case
         when wait_event is null then 'CPU'
         else wait_event_type||':'||wait_event
@@ -29,4 +29,6 @@ where 1=1
     --and pid = 123
     --and client_addr = '192.168.1.1'
 order by
-    xact_start desc;
+    xact_duration desc
+    --query_duration desc
+;
