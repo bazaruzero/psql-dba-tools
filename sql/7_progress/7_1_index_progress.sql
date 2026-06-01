@@ -5,6 +5,13 @@
 -- https://postgres.ai/docs/postgres-howtos/performance-optimization/indexing/how-to-monitor-index-operations
 --
 
+-- index create/rebuild
+
+--
+-- https://gitlab.com/-/snippets/2138417
+-- https://postgres.ai/docs/postgres-howtos/performance-optimization/indexing/how-to-monitor-index-operations
+--
+
 select
   now(),
   query_start as started_at,
@@ -15,6 +22,20 @@ select
   (pg_size_pretty(pg_relation_size(relid))) as table_size,
   nullif(wait_event_type, '') || ': ' || wait_event as wait_type_and_event,
   phase,
+  case phase
+    when 'initializing' then '1 of 10'
+    when 'waiting for writers before build' then '2 of 10'
+    when 'building index' then '3 of 10'
+    when 'waiting for writers before validation' then '4 of 10'
+    when 'index validation: scanning index' then '5 of 10'
+    when 'index validation: sorting tuples' then '6 of 10'
+    when 'validation: scanning table' then '7 of 10'
+    when 'waiting for old snapshots' then '8 of 10'
+    when 'waiting for readers before marking dead' then '9 of 10'
+    when 'waiting for readers before dropping' then '10 of 10'
+    else
+      case when left(phase, 14) = 'building index' then '3 of 10' else '' end
+  end as phase_num,
   format(
     '%s (%s of %s)',
     coalesce((round(100 * blocks_done::numeric / nullif(blocks_total, 0), 2))::text || '%', 'N/A'),
