@@ -3,6 +3,7 @@
 select
     --datname,
     usename,
+    pid,
     --backend_type,
     --leader_pid,
     --backend_xid,
