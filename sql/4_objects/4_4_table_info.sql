@@ -27,6 +27,10 @@ select
         else pg_get_partkeydef(c.oid)
     end as partition_key,
     case
+        when (c.relispartition = 'f' or c.relispartition = 't') and c.relkind = 'p' then (select count(*) from pg_partition_tree(c.oid) pt where pt.level <> 0)
+        else 0
+    end as partition_count,
+    case
         when c.reltoastrelid = 0 then pg_total_relation_size(c.oid) - pg_indexes_size(c.oid)
         else pg_total_relation_size(c.oid) - pg_indexes_size(c.oid) - pg_total_relation_size(c.reltoastrelid)
     end as tbls,
@@ -82,6 +86,7 @@ select
     partition_level,
     partition_bound,
     partition_key,
+    partition_count,
     pg_size_pretty(tbls) as table_size,
     pg_size_pretty(tps) as table_partitions_size,
     pg_size_pretty(idxs) as idx_size,
