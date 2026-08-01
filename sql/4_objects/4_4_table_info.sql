@@ -58,7 +58,8 @@ select
     t.last_vacuum, 
     t.last_analyze, 
     t.last_autovacuum, 
-    t.last_autoanalyze
+    t.last_autoanalyze,
+    c.reloptions
 from 
     pg_class c
     join pg_stat_user_tables t on c.oid = t.relid
@@ -87,6 +88,7 @@ select
     partition_bound,
     partition_key,
     partition_count,
+    reloptions as table_settings,
     pg_size_pretty(tbls) as table_size,
     pg_size_pretty(tps) as table_partitions_size,
     pg_size_pretty(idxs) as idx_size,
