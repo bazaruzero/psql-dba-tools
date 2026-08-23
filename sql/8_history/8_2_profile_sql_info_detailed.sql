@@ -1,4 +1,4 @@
--- sql history stats detailed (pg_profile required)
+-- sql stats history detailed (pg_profile required)
 
 -- set search_path = XXX;
 
