@@ -59,6 +59,9 @@ select
     age(rs.xmin) as xmin_age,
     rs.catalog_xmin,
     age(rs.catalog_xmin) as catalog_xmin_age,
+    srs.spill_txns,
+    srs.spill_count,
+    pg_size_pretty(srs.spill_bytes) as spill_size,
     rs.restart_lsn,
     rs.confirmed_flush_lsn,
     pg_size_pretty(pg_wal_lsn_diff(r.flush_lsn, r.replay_lsn)) as replay_lag,
@@ -72,6 +75,7 @@ select
 from
     pg_replication_slots rs
     full outer join pg_stat_replication r on rs.active_pid = r.pid
+    full outer join pg_stat_replication_slots srs on rs.slot_name = srs.slot_name
     left join pg_stat_activity a on coalesce(r.pid, rs.active_pid) = a.pid
 where 
     rs.slot_name is not null 
