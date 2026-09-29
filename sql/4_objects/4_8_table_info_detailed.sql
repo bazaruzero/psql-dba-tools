@@ -24,8 +24,20 @@ target_table as (
             else (select ts.spcname from pg_database d, pg_tablespace ts where d.datname = current_database() and d.dattablespace = ts.oid)
         end as tablespace,
         case
-            when c.reltablespace <> 0 then pg_tablespace_location(c.reltablespace)
-            else (select pg_tablespace_location(d.dattablespace) from pg_database d where d.datname = current_database())
+            when c.reltablespace <> 0 then
+                coalesce(
+                    nullif(pg_tablespace_location(c.reltablespace), ''),
+                    current_setting('data_directory') || '/base'
+                )
+            else (
+                select
+                    coalesce(
+                        nullif(pg_tablespace_location(d.dattablespace), ''),
+                        current_setting('data_directory') || '/base'
+                    )
+                from pg_database d
+                where d.datname = current_database()
+            )
         end as tablespace_path
     from pg_class c
     where
