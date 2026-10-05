@@ -254,10 +254,113 @@ freeze_metrics as (
                     0
                   ),
             2
-        ), 0) as toast_pct_wraparound_vacuum
+        ), 0) as toast_pct_wraparound_vacuum,
+        case
+            when mf.xid_age >= coalesce(mf.freeze_table_age,
+                                        current_setting('vacuum_freeze_table_age')::bigint)
+              or coalesce(tf.xid_age, 0) >= coalesce(tf.freeze_table_age,
+                                                     current_setting('vacuum_freeze_table_age')::bigint)
+            then 'aggressive'
+            else 'soft'
+        end as est_freeze_mode
     from
         main_freeze_opts mf
         left join toast_freeze_opts tf on tf.tbl_oid = mf.tbl_oid
+),
+vacuum_trigger_metrics as (
+    select
+        tt.tbl_oid,
+        round(
+            100.0 * us.n_dead_tup::numeric
+                / nullif(
+                    coalesce(
+                        (
+                            select split_part(opt, '=', 2)::bigint
+                            from unnest(c.reloptions) opt
+                            where split_part(opt, '=', 1) = 'autovacuum_vacuum_threshold'
+                            limit 1
+                        ),
+                        current_setting('autovacuum_vacuum_threshold')::bigint
+                    )::numeric
+                    + coalesce(
+                        (
+                            select split_part(opt, '=', 2)::numeric
+                            from unnest(c.reloptions) opt
+                            where split_part(opt, '=', 1) = 'autovacuum_vacuum_scale_factor'
+                            limit 1
+                        ),
+                        current_setting('autovacuum_vacuum_scale_factor')::numeric
+                    ) * c.reltuples::numeric,
+                    0
+                ),
+            2
+        ) as pct_avacuum_dead,
+        round(
+            100.0 * us.n_ins_since_vacuum::numeric
+                / nullif(
+                    coalesce(
+                        (
+                            select split_part(opt, '=', 2)::bigint
+                            from unnest(c.reloptions) opt
+                            where split_part(opt, '=', 1) = 'autovacuum_vacuum_insert_threshold'
+                            limit 1
+                        ),
+                        current_setting('autovacuum_vacuum_insert_threshold')::bigint
+                    )::numeric
+                    + coalesce(
+                        (
+                            select split_part(opt, '=', 2)::numeric
+                            from unnest(c.reloptions) opt
+                            where split_part(opt, '=', 1) = 'autovacuum_vacuum_insert_scale_factor'
+                            limit 1
+                        ),
+                        current_setting('autovacuum_vacuum_insert_scale_factor')::numeric
+                    ) * c.reltuples::numeric,
+                    0
+                ),
+            2
+        ) as pct_avacuum_insert,
+        case
+            when src.timeout_on and src.timeout_tbl is not null
+            then round(
+                    100.0 * src.elapsed_min::numeric
+                        / nullif(src.timeout_tbl, 0),
+                    2
+                 )
+            else null
+        end as pct_avacuum_timeout,
+        case
+            when src.timeout_on and src.analyze_timeout_tbl is not null
+            then round(
+                    100.0 * src.analyze_elapsed_min::numeric
+                        / nullif(src.analyze_timeout_tbl, 0),
+                    2
+                 )
+            else null
+        end as pct_aanalyze_timeout
+    from
+        target_table tt
+        join pg_class c on c.oid = tt.tbl_oid
+        left join pg_stat_user_tables us on us.relid = tt.tbl_oid
+        cross join lateral (
+            select
+                coalesce(current_setting('autovacuum_timeout_threshold_enable', true), '')
+                    in ('true', 't', 'on', 'yes', '1') as timeout_on,
+                (
+                    select split_part(opt, '=', 2)::numeric
+                    from unnest(c.reloptions) opt
+                    where split_part(opt, '=', 1) = 'autovacuum_vacuum_timeout'
+                    limit 1
+                ) as timeout_tbl,
+                extract(epoch from (now() - coalesce(greatest(us.last_vacuum, us.last_autovacuum), pg_postmaster_start_time()))) / 60.0 as elapsed_min,
+                (
+                    select split_part(opt, '=', 2)::numeric
+                    from unnest(c.reloptions) opt
+                    where split_part(opt, '=', 1) = 'autovacuum_analyze_timeout'
+                    limit 1
+                ) as analyze_timeout_tbl,
+                extract(epoch from (now() - coalesce(greatest(us.last_analyze, us.last_autoanalyze), pg_postmaster_start_time()))) / 60.0 as analyze_elapsed_min
+        ) src
 ),
 user_stats as (
     select
@@ -269,48 +372,113 @@ user_stats as (
         s.last_autovacuum,
         s.last_autoanalyze
     from pg_stat_user_tables s
+),
+vacuum_activity as (
+    select
+        tt.tbl_oid,
+        string_agg(
+            'pid = ' || p.pid::text,
+            '; '
+            order by p.pid
+        ) as running_info
+    from
+        target_table tt
+        left join pg_stat_progress_vacuum p on p.relid = tt.tbl_oid
+    group by tt.tbl_oid
+),
+analyze_activity as (
+    select
+        tt.tbl_oid,
+        string_agg(
+            'pid = ' || p.pid::text,
+            '; '
+            order by p.pid
+        ) as running_info
+    from
+        target_table tt
+        left join pg_stat_progress_analyze p on p.relid = tt.tbl_oid
+    group by tt.tbl_oid
 )
 select
     tgt.table_schema as tbl_schema,
     tgt.table_name as tbl_name,
+    -- tablespace name; falls back to DB default tablespace if not set
     tgt.tablespace tbl_tablespace,
+    -- filesystem path of the tablespace
     tgt.tablespace_path as tbl_tablespace_path,
+    -- true when the table is a partitioned (parent) table
     pm.is_partitioned,
+    -- true when the table itself is a partition of some parent
     pm.is_partition,
+    -- position in the partition tree: root/sub/leaf, '-' for plain tables
     pm.partition_level,
+    -- partition bound (constraint definition), '-' if not applicable
     pm.partition_bound,
+    -- partition key definition, '-' if not applicable
     pm.partition_key,
+    -- number of partitions in the whole subtree
     pm.partition_count,
+    -- total size incl. indexes and TOAST, whole subtree
     pg_size_pretty(ss.tbl_total_size_bytes) as tbl_total_size,
+    -- heap only (no indexes, no TOAST), whole subtree
     pg_size_pretty(ss.tbl_size_bytes) as tbl_size,
+    -- heap size of child partitions only
     pg_size_pretty(ss.tbl_part_size_bytes) as tbl_part_size,
+    -- all indexes size, whole subtree
     pg_size_pretty(ss.tbl_idx_size_bytes) as tbl_idx_size,
+    -- TOAST data size, whole subtree
     pg_size_pretty(ss.tbl_toast_size_bytes) as tbl_toast_size,
+    -- TOAST index size, whole subtree
     pg_size_pretty(ss.tbl_toast_idx_size_bytes) as tbl_toast_idx_size,
+    -- local (per-partition) indexes count across the scope
     ic.idx_local_count,
     ic.idx_global_count,
     round(100.0 * ss.tbl_total_size_bytes / nullif(d.total_db_size, 0), 2) as db_size_pct,
     pg_size_pretty(d.total_db_size) as db_size,
     us.n_live_tup,
     us.n_dead_tup,
+    -- dead rows as % of all estimated rows
     case
         when us.n_live_tup + us.n_dead_tup > 0
         then round((us.n_dead_tup::numeric / (us.n_live_tup + us.n_dead_tup) * 100), 2)
         else 0
     end as dead_pct,
+    -- % of freeze-table-age budget consumed (worst of main/TOAST)
     greatest(fm.main_pct_aggressive_vacuum, fm.toast_pct_aggressive_vacuum) as pct_aggressive_vacuum,
+    -- % of wraparound (freeze-max-age) budget consumed (worst of main/TOAST)
     greatest(fm.main_pct_wraparound_vacuum, fm.toast_pct_wraparound_vacuum) as pct_wraparound_vacuum,
+    -- % of dead-tuples autovacuum trigger consumed (threshold + scale_factor * reltuples)
+    vtm.pct_avacuum_dead,
+    -- % of insert-trigger autovacuum budget consumed since last vacuum
+    vtm.pct_avacuum_insert,
+    -- % of elapsed time vs per-table autovacuum_vacuum_timeout, '-' if feature disabled/not set
+    coalesce(vtm.pct_avacuum_timeout::text, '-') as pct_avacuum_timeout,
+    -- % of elapsed time vs per-table autovacuum_analyze_timeout, '-' if feature disabled/not set
+    coalesce(vtm.pct_aanalyze_timeout::text, '-') as pct_aanalyze_timeout,
+    -- estimated freeze mode: aggressive when freeze-table age threshold reached, otherwise soft
+    fm.est_freeze_mode,
     us.last_vacuum,
     us.last_analyze,
     us.last_autovacuum,
     us.last_autoanalyze,
-    tgt.reloptions as table_settings
+    tgt.reloptions as table_settings,
+    case
+        when va.running_info is not null then 'yes (' || va.running_info || ')'
+        else 'no'
+    end as is_vacuum_running,
+    case
+        when aa.running_info is not null then 'yes (' || aa.running_info || ')'
+        else 'no'
+    end as is_analyze_running
 from
     target_table tgt
     left join subtree_sizes ss on ss.tbl_oid = tgt.tbl_oid
     left join part_metadata pm on pm.tbl_oid = tgt.tbl_oid
     left join index_counts ic on ic.tbl_oid = tgt.tbl_oid
     left join freeze_metrics fm on fm.tbl_oid = tgt.tbl_oid
+    left join vacuum_trigger_metrics vtm on vtm.tbl_oid = tgt.tbl_oid
     left join user_stats us on us.tbl_oid = tgt.tbl_oid
+    left join vacuum_activity va on va.tbl_oid = tgt.tbl_oid
+    left join analyze_activity aa on aa.tbl_oid = tgt.tbl_oid
     cross join db_size d
 \gx
