@@ -219,6 +219,7 @@ toast_freeze_opts as (
 freeze_metrics as (
     select
         mf.tbl_oid,
+        mf.xid_age,
         round(
             100.0 * mf.xid_age::numeric
                 / nullif(
@@ -455,6 +456,8 @@ select
     coalesce(vtm.pct_avacuum_timeout::text, '-') as pct_avacuum_timeout,
     -- % of elapsed time vs per-table autovacuum_analyze_timeout, '-' if feature disabled/not set
     coalesce(vtm.pct_aanalyze_timeout::text, '-') as pct_aanalyze_timeout,
+    -- age of the table's relfrozenxid, in transactions
+    fm.xid_age as frozen_xid_age,
     -- estimated freeze mode: aggressive when freeze-table age threshold reached, otherwise soft
     fm.est_freeze_mode,
     us.last_vacuum,
