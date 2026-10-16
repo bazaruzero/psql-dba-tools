@@ -39,5 +39,6 @@ where
     --and client_addr = '192.168.1.1'
 order by
     xact_duration desc
+    nulls last
     --query_duration desc
 ;
