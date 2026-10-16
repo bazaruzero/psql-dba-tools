@@ -1,3 +1,5 @@
+-- vacuum truncate speedup
+
 -- ref. to https://github.com/dataegret/pg-utils/blob/master/sql/vacuum_truncate_speedup.sql
 
 \prompt 'This utility will constantly read (until stopped) tail of given table to speed up vacuum truncate operation.\nMight be useful when pgcompacttable couldn''t shrink large table in reasonable time because of conflicting lock requests.\nQuery will return 0 if there is anything left to truncate.\nPlease enter table name: ' tablename
