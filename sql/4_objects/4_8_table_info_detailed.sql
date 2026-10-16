@@ -96,6 +96,38 @@ subtree_sizes as (
     from subtree_nodes sn
     group by sn.root_oid
 ),
+toast_names as (
+    select
+        sn.root_oid as tbl_oid,
+        count(*)::int as tbl_toast_count,
+        string_agg(
+            tc.relnamespace::regnamespace::text || '.' || tc.relname,
+            ', '
+            order by tc.relname
+        ) as tbl_toast_name,
+        coalesce(sum(ti.idx_count), 0)::int as tbl_toast_idx_count,
+        string_agg(
+            ti.idx_names,
+            ', ' order by ti.idx_names
+        ) as tbl_toast_idx_name
+    from
+        subtree_nodes sn
+        join pg_class tc on tc.oid = sn.reltoastrelid
+        cross join lateral (
+            select
+                count(*)::int as idx_count,
+                string_agg(ci.relname, ', ' order by ci.relname) as idx_names
+            from
+                pg_index i
+                join pg_class ci on ci.oid = i.indexrelid
+            where
+                i.indrelid = tc.oid
+        ) ti
+    where
+        sn.reltoastrelid <> 0
+    group by
+        sn.root_oid
+),
 part_metadata as (
     select
         c.oid as tbl_oid,
@@ -429,8 +461,17 @@ select
     pg_size_pretty(ss.tbl_idx_size_bytes) as tbl_idx_size,
     -- TOAST data size, whole subtree
     pg_size_pretty(ss.tbl_toast_size_bytes) as tbl_toast_size,
+    -- number of TOAST tables in the subtree (1 for a plain table, N for partitioned)
+    coalesce(tn.tbl_toast_count, 0) as tbl_toast_count,
+    -- TOAST table names (qualified) for the subtree; a single 'schema.toast' for a
+    -- plain table, a comma-separated list per partition for a partitioned table
+    coalesce(tn.tbl_toast_name, '-') as tbl_toast_name,
     -- TOAST index size, whole subtree
     pg_size_pretty(ss.tbl_toast_idx_size_bytes) as tbl_toast_idx_size,
+    -- number of TOAST indexes in the subtree (1 per toast table)
+    coalesce(tn.tbl_toast_idx_count, 0) as tbl_toast_idx_count,
+    -- TOAST index names (unqualified) for the subtree, comma-separated
+    coalesce(tn.tbl_toast_idx_name, '-') as tbl_toast_idx_name,
     -- local (per-partition) indexes count across the scope
     ic.idx_local_count,
     ic.idx_global_count,
@@ -476,6 +517,7 @@ select
 from
     target_table tgt
     left join subtree_sizes ss on ss.tbl_oid = tgt.tbl_oid
+    left join toast_names tn on tn.tbl_oid = tgt.tbl_oid
     left join part_metadata pm on pm.tbl_oid = tgt.tbl_oid
     left join index_counts ic on ic.tbl_oid = tgt.tbl_oid
     left join freeze_metrics fm on fm.tbl_oid = tgt.tbl_oid
