@@ -133,6 +133,7 @@ part_metadata as (
         c.oid as tbl_oid,
         case when c.relkind = 'p' then true else false end as is_partitioned,
         c.relispartition as is_partition,
+        c.relpersistence as relpersistence,
         case
             when c.relispartition = 'f' and c.relkind = 'p' then 'root'
             when c.relispartition = 't' and c.relkind = 'p' then 'sub'
@@ -443,6 +444,10 @@ select
     pm.is_partitioned,
     -- true when the table itself is a partition of some parent
     pm.is_partition,
+    -- true when the table is temporary (session-scoped)
+    case when pm.relpersistence = 't' then true else false end as is_temporary,
+    -- true when the table is unlogged (no WAL, truncated on crash)
+    case when pm.relpersistence = 'u' then true else false end as is_unlogged,
     -- position in the partition tree: root/sub/leaf, '-' for plain tables
     pm.partition_level,
     -- partition bound (constraint definition), '-' if not applicable
